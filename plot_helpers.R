@@ -36,8 +36,83 @@ PlotGroupProp <- function(data, id.var, col = NULL) {
 
 }
 
+########## Violin + Box ##########
+VlnBox <- function(data, x, y, cols) {
+  
+  count_var <- data %>%
+    group_by(data[[x]]) %>%
+    tally()
+  colnames(count_var) <- c(x, "n")
+  
+  p <- ggplot() +
+    geom_half_violin(
+      data = data, aes(data[[x]], data[[y]], fill = data[[x]]),
+      side = "l", show.legend = FALSE, trim = FALSE
+    ) +
+    geom_half_boxplot(
+      data = data, aes(data[[x]], data[[y]], fill = data[[x]]),
+      side = "r", outlier.color = NA, width = 0.4, show.legend = FALSE
+    ) +
+    geom_text(
+      data = count_var,
+      aes(x = count_var[[x]], y = -Inf, 
+          label = paste0("n = ", format(n, big.mark = ",", trim = TRUE)), vjust = -1),
+      color = "black", size = 3
+    ) +
+    ylab(y) +
+    scale_y_continuous(labels = scales::comma, expand = c(0.08,0)) +
+    scale_color_manual(values = cols) +
+    scale_fill_manual(values = cols) +
+    theme_bw() +
+    theme(
+      panel.grid = element_blank(),
+      axis.title.x = element_blank(),
+      axis.text = element_text(color = "black")
+    )
+  
+  return(p)
+  
+}
 
 
+########## Half violin + half box ##########
+
+HalfVlnBox <- function(data, x, y, cols) {
+  
+  count_var <- data %>%
+    group_by(data[[x]]) %>%
+    tally()
+  colnames(count_var) <- c(x, "n")
+  
+  p <- ggplot() +
+    geom_half_violin(
+      data = data, aes(data[[x]], data[[y]], fill = data[[x]]),
+      side = "l", show.legend = FALSE, trim = FALSE
+    ) +
+    geom_half_boxplot(
+      data = data, aes(data[[x]], data[[y]], fill = data[[x]]),
+      side = "r", outlier.color = NA, width = 0.4, show.legend = FALSE
+    ) +
+    geom_text(
+      data = count_var,
+      aes(x = count_var[[x]], y = -Inf, 
+          label = paste0("n = ", format(n, big.mark = ",", trim = TRUE)), vjust = -1),
+      color = "black", size = 3
+    ) +
+    ylab(y) +
+    scale_y_continuous(labels = scales::comma, expand = c(0.08,0)) +
+    scale_color_manual(values = cols) +
+    scale_fill_manual(values = cols) +
+    theme_bw() +
+    theme(
+      panel.grid = element_blank(),
+      axis.title.x = element_blank(),
+      axis.text = element_text(color = "black")
+    )
+  
+  return(p)
+  
+}
 
 
 ########### Dimensional reduction ##########
