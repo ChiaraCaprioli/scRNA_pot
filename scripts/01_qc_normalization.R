@@ -346,44 +346,7 @@ PlotAdaptiveThresholds <- function(data, thresholds) {
   
 }
 
-# Check QC dropout
-CheckQCDropout <- function(data, thresholds) {
-  
-  L_filtered_cells <- list()
-  L_cells_qc <- list()
-  for (s in levels(data$sample_id)) {
-    
-    thresholds_s <- thresholds[which(thresholds$sample_id == s),]
-    
-    data_s <- data[which(data$sample_id == s),]
-    data_s_after <- data_s %>%  
-      filter(
-        scDblFinder.class == "singlet",
-        nCount_RNA >= thresholds_s$thresholds_nCount_min,
-        nCount_RNA <= thresholds_s$thresholds_nCount_max,
-        nFeature_RNA >= thresholds_s$thresholds_nFeature_min,
-        nFeature_RNA <= thresholds_s$thresholds_nFeature_max,
-        percent_MT >= thresholds_s$thresholds_percent_MT_min,
-        percent_MT <= thresholds_s$thresholds_percent_MT_max
-      )
-    L_filtered_cells[[s]] <- data_s_after    
-    
-    cells_qc <- tibble(
-      sample_id = s,
-      before_qc = nrow(data_s),
-      after_doublets_removal = nrow(data_s[which(data_s$scDblFinder.class == "singlet"),]),
-      after_qc = nrow(data_s_after)
-    )
-    L_cells_qc[[s]] <- cells_qc
-    
-  }
-
-  table_cells_qc <- do.call(rbind, L_cells_qc)
-  return(table_cells_qc)
-  
-}
-
-# Apply thresholds
+# Apply thresholds and check dropout
 ApplyAdaptiveThresholds <- function(data, thresholds) {
   
   L_flagged_cells <- list()
@@ -445,5 +408,3 @@ RemoveLowlyExpressedGenes <- function(seurat) {
   return(seurat)
   
 }
-
-
