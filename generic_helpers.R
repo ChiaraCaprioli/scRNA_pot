@@ -16,7 +16,7 @@ SetPaths <- function(project_name) {
 ########## Set logger ##########
 SetLogger <- function(logfile) {
   
-  logfile = "log.txt"
+  logfile = logfile
   file_appender = file_appender(
     logfile, 
     append = TRUE, 
