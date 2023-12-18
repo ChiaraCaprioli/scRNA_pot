@@ -57,6 +57,7 @@ GetLeidenClusters <- function(seurat, assay, k_list, res_list, seed, reduction, 
     }
   
   cluster_all <- do.call(cbind, res_L) 
+  colnames(cluster_all) <- names(res_L)
   return(cluster_all)
   
 }

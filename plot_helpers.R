@@ -44,15 +44,11 @@ VlnBox <- function(data, x, y, cols) {
     tally()
   colnames(count_var) <- c(x, "n")
   
-  p <- ggplot() +
-    geom_half_violin(
-      data = data, aes(data[[x]], data[[y]], fill = data[[x]]),
-      side = "l", show.legend = FALSE, trim = FALSE
-    ) +
-    geom_half_boxplot(
-      data = data, aes(data[[x]], data[[y]], fill = data[[x]]),
-      side = "r", outlier.color = NA, width = 0.4, show.legend = FALSE
-    ) +
+  p <- ggplot(data, aes(data[[x]], data[[y]])) +
+    geom_violin(scale = "width", trim = F, aes(fill = data[[x]])) +
+    geom_boxplot(outlier.size = 0, width = 0.3, fill = "white") +
+    theme_bw() +
+    scale_y_continuous(limits = c(0,1)) +
     geom_text(
       data = count_var,
       aes(x = count_var[[x]], y = -Inf, 
@@ -61,19 +57,19 @@ VlnBox <- function(data, x, y, cols) {
     ) +
     ylab(y) +
     scale_y_continuous(labels = scales::comma, expand = c(0.08,0)) +
-    scale_color_manual(values = cols) +
     scale_fill_manual(values = cols) +
     theme_bw() +
     theme(
       panel.grid = element_blank(),
       axis.title.x = element_blank(),
-      axis.text = element_text(color = "black")
+      axis.text = element_text(color = "black"),
+      axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1),
+      legend.position = "none"
     )
   
   return(p)
   
 }
-
 
 ########## Half violin + half box ##########
 
@@ -114,23 +110,35 @@ HalfVlnBox <- function(data, x, y, cols) {
   
 }
 
+########### Dimensional reduction by multiple variables ##########
 
-########### Dimensional reduction ##########
-#
-#
-#function(obj, reduction, group.by, cols, pt.size, shuffle, seed) {
-#  
-#}
-#
-#DimPlot(harmony_seurat, reduction = 'UMAP', 
-#        group.by = 'lineage', cols = colors$lineage, pt.size = 0.1, shuffle = T, seed = 123) +
-#  theme_bw() +
-#  coord_equal() +
-#  ggtitle("harmony") +
-#  theme(panel.grid = element_blank(),
-#        aspect.ratio = 1,
-#        axis.title = element_text(size = 13),
-#        axis.text = element_text(size = 10),
-#        plot.title = element_text(face = 'bold', hjust = 0.5, vjust = 2),
-#        legend.position = 'bottom'
-#  )#
+MultiVarDimRed <- function(seurat, var, reduction) {
+  
+  L_plots <- list()
+  for (v in var) {
+    p <- DimPlot(
+      object = seurat, 
+      reduction = reduction, 
+      group.by = v, 
+      cols = colors[[v]], 
+      pt.size = 0.1, shuffle = T, seed = 123) +
+      theme_bw() +
+      coord_equal() +
+      theme(panel.grid = element_blank(),
+            aspect.ratio = 1,
+            axis.title = element_text(size = 13),
+            axis.text = element_text(size = 10),
+            plot.title = element_text(face = 'bold', hjust = 0.5, vjust = 2),
+            legend.margin = margin(rep(0,4), "cm"),
+            legend.justification = "left",
+            plot.margin = unit(c(0.1, 0.1, 0.1 , 0.1), "cm")
+      )
+    
+    L_plots[[v]] <- p
+  }
+  
+  pgrid <- plot_grid(plotlist = L_plots, ncol = floor(length(var)/2), align = "hv")
+  return(pgrid)
+  
+}
+

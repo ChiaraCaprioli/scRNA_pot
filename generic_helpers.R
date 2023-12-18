@@ -13,7 +13,21 @@ SetPaths <- function(project_name) {
   
 }
 
-########## Update sample sheet with patient age ##########
+########## Set logger ##########
+SetLogger <- function(logfile) {
+  
+  logfile = logfile
+  file_appender = file_appender(
+    logfile, 
+    append = TRUE, 
+    layout = default_log_layout()
+  )
+  my_logger <- logger(threshold = "INFO", appenders = file_appender)
+  return(my_logger)
+  
+}
+
+########## Update sample sheet with patient age and sequencing batch ##########
 
 UpdateSampleSheet <- function(sample_sheet) {
   
@@ -61,3 +75,24 @@ UpdateSampleSheet <- function(sample_sheet) {
     message("Please upload sample sheet!")
   }
 }
+
+########## Table counts according to grouping variables ##########
+
+TableGroupedCounts <- function(data, var1, var2) {
+  
+  tab <- data %>%
+    group_by(data[[var1]], data[[var2]]) %>%
+    summarize(count = n()) %>%
+    spread(`data[[var2]]`, count, fill = 0) %>%
+    ungroup() %>%
+    mutate(total_cell_count = rowSums(.[c(2:ncol(.))])) %>%
+    dplyr::select(c(`data[[var1]]`, "total_cell_count", everything())) %>%
+    arrange(factor(`data[[var1]]`, levels = levels(data[[var1]])))
+  
+  colnames(tab)[1] <- var1
+  
+  return(tab)
+  
+}
+
+
