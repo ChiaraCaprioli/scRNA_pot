@@ -8,23 +8,25 @@
 # (i.e., silhouette width, purity and modularity).
 
 # Silhouette width evaluates cluster separation.
-# For each cell, we compute:
-# 1) the average distance to all cells in the same cluster
-# 2) the average distance to all cells in another cluster, taking the minimum of the averages across all other clusters. 
-# The silhouette width for each cell is defined as the difference between these two values divided by their maximum.
+# For each cell, we compute the average distance to all cells in the same cluster and the average distance 
+# to all cells in another cluster, taking the minimum of the averages across all other clusters. 
+# The silhouette width for each cell is then defined as the difference between these two values divided by their maximum.
 # As a result, cells with large positive silhouette widths are closer to other cells in the same cluster 
 # than to cells in different clusters (i.e., clusters with large positive silhouette widths are well-separated from other clusters).
 # Moreover, low widths may still occur in well-separated clusters if the internal heterogeneity is high, 
 # possibly indicating underclustering.
 # As dealing with large datasets makes the calculation of pairwise distances extremely time-consuming,
 # we use an approximate approach (implemented in `bluster`) which computes the root of the average squared distances.
-# We also evaluate how the mean of approximate silhouette behaves with varying number of clusters.
 
 # Purity quantifies the degree to which cells from multiple clusters intermingle in expression space. 
 # Differently from silhouette width, purity ignores the intra-cluster variance. 
 # For each cell, purity is defined as the proportion of neighboring cells that are assigned to the same cluster, 
-# after some weighting to adjust for differences in the number of cells between clusteres. 
+# after some weighting to adjust for differences in the number of cells between clusters. 
 # Well-separated clusters should exhibit little intermingling and thus high purity values for all member cells.
+
+# WCSS quantifies how close data points within a cluster are to the centroid of that cluster.
+# It is computed as the sum of squares of the distances of each data point in all clusters to their respective centroids.
+# The lower the sum, the more coherent the cluster (i.e., there is no internal structure to score with subclustering).
 
 # Modularity is defined as the (scaled) difference between the observed total weight of edges between nodes in 
 # the same cluster and the expected total weight if edge weights were randomly distributed across all pairs of nodes. 
@@ -43,21 +45,23 @@
 #' @param seed Random number generator.
 #' @param path Path where results will be saved.
 #' @param ndims Number of dimensions to consider.
-#' @param method Method to evaluate cluster separation. Can be one of silhouette, purity, modularity or all.
+#' @param method Method to evaluate cluster separation. Can be one of silhouette, purity, WCSS, modularity or all.
 #' @return Plots specific to each method to evaluate each k/res combination.
 
-ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, method) {
+ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, metric) {
   
+  ###### start logger ######
   start_time <- Sys.time()
   info(my_logger, paste0("Evaluating part 1"))
   
+  ###### set seed ######
   if (!is.null(seed)) {
     set.seed(seed)
   }
   
-  if (method == "all" | method == "silhouette") {
+  ###### silhouette ######
+  if (metric == "all" | metric == "silhouette") {
     
-    ###### silhouette ######
     info(my_logger, paste0("Evaluating silhouette..."))
     
     L_mean_sil <- list()
@@ -111,81 +115,15 @@ ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, met
     }
     
     info(my_logger, paste0("Done!"))
-    
-    ###### mean silhouette vs n clusters ######
-    info(my_logger, paste0("Evaluating mean silhouette vs n clusters..."))
-    
-    cluster_all <- seurat@meta.data %>% 
-      dplyr::select(
-        contains(paste0("k_",k_list)) &
-          contains(paste0("res_",res_list)) 
-      )
-    
-    n_clusters <- apply(cluster_all,2,max) %>% 
-      as.data.frame() %>%
-      rownames_to_column(var = "k_res") %>%
-      dplyr::rename("n_clusters" = 2)
-    n_clusters$k_res <- str_remove(n_clusters$k_res, "RNA_snn_")
-    
-    mean_sil <- do.call(rbind, L_mean_sil) %>% 
-      as.data.frame() %>% 
-      rownames_to_column(var = "k_res")
-    
-    df_k <- full_join(n_clusters, mean_sil, by = "k_res")
-    colnames(df_k) <- c("k_res", "n_clusters", "mean_sil")
-    df_k <- df_k %>% arrange(desc(mean_sil))
-    df_k$k_res <- factor(df_k$k_res)
-    
-    p1 <- ggplot(df_k, aes(reorder(k_res, rev(mean_sil)), mean_sil)) +
-      geom_point() +
-      geom_line(group = "resolution") +
-      ylab('Mean silhouette score') +
-      theme_bw() +
-      theme(
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(size = 8, color = 'black', angle = 45, hjust = 1, vjust = 1),
-        panel.grid = element_blank(),
-        plot.margin = unit(c(0.5,0,0,0), "cm")
-        )
-    
-    p2 <- ggplot(df_k, aes(reorder(k_res, rev(mean_sil)), n_clusters)) +
-      geom_point() +
-      geom_line(group = "resolution") +
-      ylab('N clusters') +
-      theme_bw() +
-      theme(
-        axis.title.x = element_blank(),
-        axis.text.x = element_text(size = 8, color = 'black', angle = 45, hjust = 1, vjust = 1),
-        panel.grid = element_blank(),
-        plot.margin = unit(c(0.5,0,0,0), "cm")
-        )
-    
-    L_plots <- plot_grid(
-      p1, 
-      #+ theme(
-      #  axis.text.x = element_blank(),
-      #  axis.ticks.x = element_blank(), 
-      #  axis.title.x = element_blank()
-      #), 
-      p2,
-      ncol = 1,
-      align = "hv"
-    )
-    
-    ggsave(
-      paste0(path, "/plots/mean_sil_n_clusters.png"),
-      L_plots,
-      width = 6, height = 3*(length(res_list)/2)
-    )
-    
-    info(my_logger, paste0("Done!"))
-    
+  
   }
   
-  if (method == "all" | method == "purity") {
-    ###### purity ######
+  ###### purity ######
+  if (metric == "all" | metric == "purity") {
+    
     info(my_logger, paste0("Evaluating purity..."))
     
+    L_mean_purity <- list()
     for (k in k_list) {
       
       L2 <- list()
@@ -215,6 +153,8 @@ ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, met
         
         L2[[paste0("res_", r)]] <- p2
         
+        L_mean_purity[[paste0("k_", k, "_res_", r)]] <- mean(pur_data$purity)
+        
       }
       
       k_plots2 <- plot_grid(plotlist = L2, align = "hv")
@@ -233,10 +173,70 @@ ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, met
     
   }
   
-  if (method == "all" | method == "modularity") {
+  ###### WCSS ######
+  if (metric == "all" | metric == "WCSS") {
     
-    ###### modularity ######
-    info(my_logger, paste0("Evaluating modularity"))
+    info(my_logger, paste0("Evaluating within-cluster sum of squares..."))
+    
+    L_sum_wcss <- list()
+    for (k in k_list) {
+      
+      L3 <- list()
+      for (r in res_list) {
+        
+        res = paste0("RNA_snn_k_", k, "_res_", r)
+        
+        wcss <- as.data.frame(
+          clusterRMSD(
+            x = Embeddings(seurat[['scanorama']]), 
+            clusters = seurat@meta.data[[res]],
+            sum = TRUE
+            )
+          )
+        colnames(wcss) <- "wcss"
+        wcss$cluster <- as.character(1:nrow(wcss))
+        wcss$cluster <- factor(wcss$cluster, levels = 1:nrow(wcss))
+        
+        p3 <- ggplot(wcss, aes(x = cluster, y = wcss)) +
+          geom_point() +
+          geom_line(group = "cluster") +
+          geom_hline(yintercept = mean(wcss$wcss), color = "red", linetype = 2) +
+          theme_bw() +
+          xlab("cluster_id") +
+          ylab("WCSS") +
+          ggtitle(paste0("k_", k, "_res_", r)) +
+          theme(
+            panel.grid = element_blank(),
+            axis.text = element_text(color = "black"),
+            axis.text.x = element_text(angle = 90, vjust = 1, hjust = 1, size = 8)
+          )
+        
+        L3[[paste0("res_", r)]] <- p3
+        
+        L_sum_wcss[[paste0("k_", k, "_res_", r)]] <- sum(wcss$wcss)
+        
+      }
+      
+      k_plots3 <- plot_grid(plotlist = L3, align = "hv")
+      
+      ggsave(
+        paste0(path, "/plots/k", k, "_WCSS.png"),
+        k_plots3 + 
+          plot_annotation(
+            title = paste0("k = ", k),
+            theme = theme(plot.title = element_text(face = "bold", size = 16, hjust = 0.5, vjust = 2))
+          ),
+        width = 12, height = 4*(length(res_list)/2)
+      )
+      
+    }
+    info(my_logger, paste0("Done!"))
+  }
+  
+  ###### modularity ######
+  if (metric == "all" | metric == "modularity") {
+    
+    info(my_logger, paste0("Evaluating modularity..."))
     
     sce <- as.SingleCellExperiment(seurat)
     reducedDim(sce, 'scanorama') <- Embeddings(seurat[['scanorama']])[, 1:ndims]
@@ -244,7 +244,7 @@ ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, met
     
     for (k in k_list) {
       
-      L3 <- list()
+      L4 <- list()
       for (r in res_list) {
         res = paste0("RNA_snn_k_", k, "_res_", r)
         ratio <- bluster::pairwiseModularity(g, seurat@meta.data[[res]], as.ratio = TRUE)
@@ -260,7 +260,7 @@ ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, met
             cluster_1 = factor(cluster_1, levels = rev(unique(cluster_1))),
             cluster_2 = factor(cluster_2, levels = unique(cluster_2))) 
         
-        p3 <- ggplot(x, aes(cluster_2, cluster_1, fill = probability)) +
+        p4 <- ggplot(x, aes(cluster_2, cluster_1, fill = probability)) +
           geom_tile(color = 'white') +
           #geom_text(aes(label = round(probability, digits = 2)), size = 2.5) +
           scale_x_discrete(name = 'cluster_id', position = 'top') +
@@ -282,14 +282,14 @@ ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, met
             axis.ticks = element_line(linewidth = 0.5)
           )
         
-        L3[[paste0("res_", r)]] <- p3
+        L4[[paste0("res_", r)]] <- p4
       }
       
-      k_plots3 <- plot_grid(plotlist = L3, align = "hv")
+      k_plots4 <- plot_grid(plotlist = L4, align = "hv")
       
       ggsave(
-        paste0(path, "/plots/k", k, "_similarity.png"),
-        k_plots3 + 
+        paste0(path, "/plots/k", k, "_modularity.png"),
+        k_plots4 + 
           plot_annotation(
             title = paste0("k = ", k),
             theme = theme(plot.title = element_text(face = "bold", size = 16, hjust = 0.5, vjust = 2))
@@ -298,15 +298,83 @@ ClusterDiagnostics1 <- function(seurat, k_list, res_list, seed, path, ndims, met
       )
     }
     info(my_logger, paste0("Done!"))
-    
-    end_time <- Sys.time()
-    
-    info(my_logger, 
-         paste0("Part 1 successfully done in ", 
-                floor(as.numeric(end_time - start_time, units = "mins")), " mins")
-    )
 
   }
+  
+  ###### all metrics vs n clusters ######
+  if (metric == "all") {
+    
+    info(my_logger, paste0("Evaluating all metrics vs n clusters..."))
+    
+    cluster_all <- seurat@meta.data %>% 
+      dplyr::select(
+        contains(paste0("k_",k_list, "_")) &
+          contains(paste0("res_",res_list)) 
+      )
+    n_clusters <- apply(cluster_all,2,max) %>% 
+      as.data.frame() %>%
+      rownames_to_column(var = "k_res") %>%
+      dplyr::rename("n_clusters" = 2)
+    n_clusters$k_res <- str_remove(n_clusters$k_res, "RNA_snn_")
+    n_clusters$k_res <- factor(n_clusters$k_res, levels = unique(n_clusters$k_res))
+    
+    mean_sil <- do.call(rbind, L_mean_sil) %>% 
+      as.data.frame() %>% 
+      rownames_to_column(var = "k_res")
+    colnames(mean_sil)[2] <- "mean_silhouette"
+    
+    mean_pur <- do.call(rbind, L_mean_purity) %>% 
+      as.data.frame() %>% 
+      rownames_to_column(var = "k_res")
+    colnames(mean_pur)[2] <- "mean_purity"
+    
+    sum_wcss <- do.call(rbind, L_sum_wcss) %>% 
+      as.data.frame() %>% 
+      rownames_to_column(var = "k_res")
+    colnames(sum_wcss)[2] <- "sum_wcss"
+    
+    df_k <- Reduce(full_join, list(n_clusters, mean_sil, mean_pur, sum_wcss)) %>%
+      pivot_longer(cols = 2:ncol(.), names_to = "metric", values_to = "score")
+    
+    df_k$metric <- str_replace_all(df_k$metric, pattern = "_", replacement = " ")
+    df_k$metric <- factor(df_k$metric, levels = unique(df_k$metric))
+    df_k$k_res <- factor(df_k$k_res, levels = unique(df_k$k_res))  
+    
+    write.csv(df_k, paste0(path, "/tables/cluster_separation_metrics.csv"))
+    
+    p <- df_k %>%
+      ggplot(aes(k_res, score, color = metric)) +
+      geom_point() +
+      geom_line(group = "resolution") +
+      ylab('Score') +
+      theme_bw() +
+      facet_wrap(~metric, scales = "free") +
+      theme(
+        axis.title.x = element_blank(),
+        axis.text = element_text(color = "black"),
+        axis.text.x = element_text(size = 8, angle = 45, hjust = 1, vjust = 1),
+        panel.grid = element_blank(),
+        strip.text = element_text(size = 14, face = "bold"),
+        legend.position = "none"
+      )
+    
+    ggsave(
+      paste0(path, "/plots/all_metrics.png"),
+      p,
+      width = 9, height = 3*(length(res_list)/2)
+    )
+    
+    info(my_logger, paste0("Done!"))
+    
+  }
+  
+  ###### end logger ######
+  end_time <- Sys.time()
+  
+  info(my_logger, 
+       paste0("Part 1 successfully done in ", 
+              floor(as.numeric(end_time - start_time, units = "mins")), " mins")
+  )
   
 }
 
@@ -385,7 +453,7 @@ ClusterDiagnostics3 <- function(seurat, k_list, res_list, seed, path, ndims) {
     
     for (j in (i:ncol(cluster_all))){
       
-      res[i,j] <- res[j,i] <- pairwiseRand(cluster_all[,i], cluster_all[,j], mode="index")
+      res[i,j] <- res[j,i] <- pairwiseRand(cluster_all[,i], cluster_all[,j], mode="index", adjusted = TRUE)
       
     }
   }
@@ -450,7 +518,7 @@ ClusterDiagnostics4 <- function(seurat, k_list, res_list, seed, path, var) {
     
       mat_cl_lin <- seurat@meta.data %>% dplyr::select(c(res, var))
       mat_cl_lin <- table(as.character(mat_cl_lin[[res]]), as.character(mat_cl_lin[[var]]))
-      mat_cl_lin <- t(mat_cl_lin)/apply(mat_cl_lin,2,sum) # fraction of cells in the same lineage across clusters
+      mat_cl_lin <- t(mat_cl_lin)/apply(mat_cl_lin,2,sum) # fraction of cells from same lineage across clusters
       
       c_order <- sort(as.numeric(colnames(mat_cl_lin)))
       r_order <- levels(seurat@meta.data[[var]])
@@ -540,4 +608,8 @@ ClusterDiagnostics4 <- function(seurat, k_list, res_list, seed, path, var) {
   
 }
 
-## TO DO: stability by bootstrapping
+################ TO DO ################
+# stability by bootstrapping
+# qc metrics by cluster on chosen solutions
+# UMAP on chosen solutions
+
