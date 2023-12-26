@@ -95,4 +95,33 @@ TableGroupedCounts <- function(data, var1, var2) {
   
 }
 
-
+########## Shannon entropy according to grouping variables ##########
+ShannonEntropyVar <- function(data, g_var, en_var) {
+  
+  # prepare data
+  x <- data_entropy %>%
+    group_by(
+      data_entropy[g_var[[1]]],
+      data_entropy[g_var[[2]]],
+      data_entropy[en_var]
+    ) %>%
+    summarise(n = n()) 
+  
+  # get entropy by grouping var
+  df_entropy <- data.frame()
+  for ( i in unique(x[[g_var[[1]]]]) ) {
+    g_count <- x[which(x[g_var[[1]]] == i),]
+    df_entropy <- rbind(
+      cbind(
+        g1 = unique(g_count[g_var[[1]]]),
+        g2 = unique(g_count[g_var[[2]]]),
+        entropy = entropy(g_count$n)
+      ),
+      df_entropy
+    )
+  }
+  
+  df_entropy <- df_entropy %>% map_df(rev)
+  return(df_entropy)
+  
+}
