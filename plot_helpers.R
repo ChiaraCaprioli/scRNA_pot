@@ -4,14 +4,19 @@
 # Requires data = table whose columns contain main grouping variable, total cell count and 
 # counts by other grouping variables (order is mandatory)
 
-PlotGroupProp <- function(data, id.var, col = NULL) {
+BarGroupProp <- function(data, id.var, col = NULL) {
 
   data_prop <- data %>%
     dplyr::select(-c('total_cell_count')) %>%
     reshape2::melt(id.vars = id.var) 
   data_prop %>% 
     ggplot(aes(data_prop[[id.var]], value)) +
-    geom_bar(aes(fill = variable), color = "black", position = 'fill', stat = 'identity', width = 0.7) +
+    geom_bar(
+      aes(fill = variable), 
+      color = "black", position = 'fill', 
+      stat = 'identity', width = 0.7,
+      size = 0.3
+      ) +
     geom_text(
       data = data,
       aes(x = data[[1]], y = Inf, 
@@ -20,7 +25,7 @@ PlotGroupProp <- function(data, id.var, col = NULL) {
       color = 'black', size = 3
     ) +
     scale_y_continuous(name = '% cells', labels = scales::percent_format(), expand = c(0.01,0)) +
-    scale_fill_manual(values = c("lightgrey", "#737373")) +
+    scale_fill_manual(values = col) +
     coord_cartesian(clip = 'off') +
     theme_bw() +
     theme(
@@ -31,13 +36,14 @@ PlotGroupProp <- function(data, id.var, col = NULL) {
       panel.grid = element_blank(),
       axis.title.x = element_blank(),
       legend.title = element_blank(),
+      legend.text = element_text(size = 9),
       plot.margin = margin(t = 60, r = 0, b = 0, l = 0, unit = 'pt')
     )
 
 }
 
 ########## Violin + Box ##########
-VlnBox <- function(data, x, y, cols) {
+VlnBox <- function(data, x, y, cols = NULL) {
   
   count_var <- data %>%
     group_by(data[[x]]) %>%
@@ -116,11 +122,12 @@ MultiVarDimRed <- function(seurat, var, reduction) {
   
   L_plots <- list()
   for (v in var) {
+
     p <- DimPlot(
       object = seurat, 
       reduction = reduction, 
       group.by = v, 
-      cols = colors[[v]], 
+      cols = cols, 
       pt.size = 0.1, shuffle = T, seed = 123) +
       theme_bw() +
       coord_equal() +
@@ -137,8 +144,50 @@ MultiVarDimRed <- function(seurat, var, reduction) {
     L_plots[[v]] <- p
   }
   
-  pgrid <- plot_grid(plotlist = L_plots, ncol = floor(length(var)/2), align = "hv")
+  pgrid <- plot_grid(plotlist = L_plots, ncol = 2, align = "hv")
   return(pgrid)
   
 }
 
+########## Jitter plot ##########
+JitterPlot <- function(data, x, y, cols, bar, stat_pwc, symnum.args) {
+  
+  p <- ggplot(data, aes(data[[x]], data[[y]], fill = data[[x]])) +
+    geom_jitter(
+      size = 2.5, width = 0.2, height = 0, 
+      shape = 21, stroke = 0.2, color = "black"
+    ) +
+    #geom_point(
+    #  data = data = data %>% group_by(data[x]) %>% summarise(mean = mean(.data[[y]])), 
+    #  mapping = aes(x = data[x], y = bar), 
+    #  size = 10, color = 'black', shape = '_'
+    #  ) +
+    theme_bw() +
+    scale_y_continuous(expand = c(0.2,-0.2)) +
+    ylab(y) +
+    scale_fill_manual(values = cols) +
+    stat_pwc(
+      method = stat_pwc,
+      bracket.shorten = 0.3,
+      tip.length = 0,
+      vjust = 0,
+      label.size = 2.8,
+      label = "p.adj.signif",
+      symnum.args = symnum.args,
+      hide.ns = T
+    ) +
+    theme(
+      panel.grid = element_blank(),
+      aspect.ratio = 1,
+      legend.position = "none", 
+      axis.title.x = element_blank(),
+      axis.text = element_text(color = "black"),
+      axis.text.x = element_text(size = 10, angle = 30, hjust = 1),
+      axis.title.y = element_text(size = 10),
+      plot.title = element_text(face = "bold", hjust = 0.5, vjust = 2, size = 12),
+      plot.margin = unit(c(1,1,0,0), "cm")
+    )
+  
+  return(p)
+  
+}
