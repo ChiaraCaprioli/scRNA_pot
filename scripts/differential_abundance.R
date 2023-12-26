@@ -254,7 +254,6 @@ RunMilo <- function(
         plot.margin = unit(c(3,0.5,0,0), "cm"),
         panel.border = element_rect(linewidth = 0.5),
         aspect.ratio = 1
-        
       ) +
       annotation_custom(grob = grid::linesGrob(
         arrow = arrow(type="open", ends="both", length = unit(3,"mm")), 
@@ -285,5 +284,76 @@ RunMilo <- function(
     ggsave(paste0(path_save, "/da_results.png"), p, width = 5, height = 5)
     
   }
+  
+}
+
+
+################ Plot scCODA results ################
+PlotScCODA <- function(contrast, path_res, alpha, width, height) {
+  
+  # prepare data
+  res <- read_csv(paste0(path_res, contrast, "/", contrast, ".csv"), show_col_types = F)
+  res$`Cell Type` <- factor(res$`Cell Type`, levels = res$`Cell Type`)
+  res$flag <- case_when(
+    res$`Final Parameter` == 0 ~ "ns",
+    res$`Final Parameter` != 0 & res$`log2-fold change` > 0 ~ "up",
+    res$`Final Parameter` != 0 & res$`log2-fold change` < 0 ~ "down"
+  )
+  res$flag <- factor(res$flag, levels = c("ns", "up", "down"))
+  
+  # plot
+  p <- ggplot(res, aes(x = res$`Cell Type`, y = res$`log2-fold change`, fill = flag)) +
+    geom_col(color = "black", linewidth = 0.3, width = 0.8) +
+    theme_bw() +
+    scale_fill_manual(values = c("lightgrey", "darkred", "steelblue")) +
+    labs(
+      title = contrast,
+      subtitle = paste0("FDR < ", alpha),
+      y = "Log2FC"
+    ) +
+    coord_cartesian(clip = "off") +
+    theme(
+      panel.grid = element_blank(),
+      plot.title = element_text(face = "bold", hjust = 0.5, vjust = 20, size = 13),
+      plot.subtitle = element_text(face = "italic", hjust = 0.5, vjust = 18, size = 12),
+      axis.title.x = element_blank(),
+      axis.text = element_text(color = "black"),
+      axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+      legend.position = "none",
+      plot.margin = unit(c(2,0,0,3), "cm"),
+      panel.border = element_rect(linewidth = 0.5),
+      aspect.ratio = 0.5
+    ) +
+    annotation_custom(
+      grob = grid::linesGrob(
+        arrow = arrow(type="open", ends="both", length = unit(3,"mm")), 
+        gp = grid::gpar(col = "black", lwd = 1)
+      ), 
+      xmin = -1.8, xmax = -1.8, 
+      ymin = min(res$`log2-fold change`), ymax = max(res$`log2-fold change`)
+    ) +
+    annotation_custom(
+      grob = grid::textGrob(
+        label = str_split_1(contrast, pattern = "_")[1], 
+        hjust = 0.5, vjust = -0.5, just = "top",
+        rot = 90, gp = grid::gpar(col = "black", fontsize = 11)
+      ), 
+      xmin = -2.1, xmax = -2.1, 
+      ymin = max(res$`log2-fold change`)-1,
+      ymax = max(res$`log2-fold change`)
+    ) +
+    annotation_custom(
+      grob = grid::textGrob(
+        label = str_split_1(contrast, pattern = "_")[2],
+        hjust = 0.5, vjust = -0.5, just = "bottom",
+        rot = 90, gp = grid::gpar(col = "black", fontsize = 11)
+      ), 
+      xmin = -2.1, xmax = -2.1, 
+      ymin = min(res$`log2-fold change`), 
+      ymax = min(res$`log2-fold change`)+1
+    ) 
+  
+  # save
+  ggsave(paste0(path_res, contrast, "/", contrast, "_da.png"), width = width, height = height)
   
 }
