@@ -320,7 +320,7 @@ PlotScCODA <- function(contrast, path_res, alpha, width, height) {
       axis.text = element_text(color = "black"),
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
       legend.position = "none",
-      plot.margin = unit(c(2,0,0,3), "cm"),
+      plot.margin = unit(c(2,0.5,0,3), "cm"),
       panel.border = element_rect(linewidth = 0.5),
       aspect.ratio = 0.5
     ) +
