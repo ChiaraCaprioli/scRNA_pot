@@ -1,3 +1,7 @@
+# TO DO:
+# Fix size in MCMC diagnostic plots
+# Add table with acceptance rate by test/parameters
+
 ## Setup
 import importlib
 import warnings
@@ -13,13 +17,17 @@ from sccoda.util import cell_composition_data as dat
 from sccoda.util import data_visualization as viz
 
 import arviz as az
+import tensorflow as tf
 
 ## Run scCODA
-def RunScCODA(path_cell_counts, path_save, contrasts, group_var, alpha):
+def RunScCODA(path_cell_counts, path_save, contrasts, group_var, alpha, seed):
     
     ## Set path
     PATH_scCODA = os.path.join(path_save, "scCODA")
     os.makedirs(os.path.join(path_save, "scCODA"), exist_ok = True) 
+
+    ## Set seed
+    tf.random.set_seed(seed = seed)
 
     ## Prepare data
     # Load data
@@ -45,12 +53,12 @@ def RunScCODA(path_cell_counts, path_save, contrasts, group_var, alpha):
         # Set model
         model = mod.CompositionalAnalysis(
             data_contrast, formula=f"C({group_var}, Treatment('{ref}'))", 
-            reference_cell_type="automatic",
-            automatic_reference_absence_threshold = 0.05
-            ) # desired acceptance rate 0.4-0.9 
+            reference_cell_type = "automatic"
+            #automatic_reference_absence_threshold = 0.05 # default = 0.05
+            ) 
             
         # Run MCMC
-        res = model.sample_hmc()
+        res = model.sample_hmc() # desired acceptance rate 0.4-0.9 (otherwise check sampling issues)
 
         # Set desired FDR
         res.set_fdr(est_fdr = alpha)
@@ -75,3 +83,4 @@ def RunScCODA(path_cell_counts, path_save, contrasts, group_var, alpha):
 
         # Save summary as csv
         res.effect_df.to_csv(os.path.join(PATH_SAVE, f"{i}.csv"))
+        
