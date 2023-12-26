@@ -299,18 +299,34 @@ PlotScCODA <- function(contrast, path_res, alpha, width, height) {
     res$`Final Parameter` != 0 & res$`log2-fold change` > 0 ~ "up",
     res$`Final Parameter` != 0 & res$`log2-fold change` < 0 ~ "down"
   )
-  res$flag <- factor(res$flag, levels = c("ns", "up", "down"))
+  res$flag <- factor(res$flag, levels = c("up", "down", "ns"))
   
+  l <- list()
+  l$col_flag <- setNames(
+    c("darkred", "steelblue", "lightgrey"),
+    c("up", "down", "ns")
+  )
+
   # plot
+  ## consider flipping coord for easier reading
   p <- ggplot(res, aes(x = res$`Cell Type`, y = res$`log2-fold change`, fill = flag)) +
     geom_col(color = "black", linewidth = 0.3, width = 0.8) +
     theme_bw() +
-    scale_fill_manual(values = c("lightgrey", "darkred", "steelblue")) +
+    scale_fill_manual(
+      values = l$col_flag,
+      breaks = c("up", "down", "ns"),
+      labels = c(
+        bquote(paste(symbol("\255") ~ " in" ~ .(str_split_1(contrast, pattern = "_")[1]))),
+        bquote(paste(symbol("\255") ~ " in" ~ .(str_split_1(contrast, pattern = "_")[2]))),
+        "ns"
+      )
+      ) +
     labs(
       title = contrast,
-      subtitle = paste0("FDR < ", alpha),
-      y = "Log2FC"
+      subtitle = paste0("FDR < ", alpha)
+      #y = "Log2FC"
     ) +
+    scale_y_continuous(limits = c(-max(abs(res$`log2-fold change`)), max(abs(res$`log2-fold change`)) )) +
     coord_cartesian(clip = "off") +
     theme(
       panel.grid = element_blank(),
@@ -319,41 +335,63 @@ PlotScCODA <- function(contrast, path_res, alpha, width, height) {
       axis.title.x = element_blank(),
       axis.text = element_text(color = "black"),
       axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
-      legend.position = "none",
-      plot.margin = unit(c(2,0.5,0,3), "cm"),
+      axis.title.y = element_blank(),
+      #axis.title.y = element_text(margin=margin(r = 5)),
+      legend.title = element_blank(),
+      plot.margin = unit(c(3,0.5,0,2), "cm"),
       panel.border = element_rect(linewidth = 0.5),
-      aspect.ratio = 0.5
+      aspect.ratio = 0.6
     ) +
     annotation_custom(
       grob = grid::linesGrob(
-        arrow = arrow(type="open", ends="both", length = unit(3,"mm")), 
+        arrow = arrow(type="open", ends="last", length = unit(3,"mm")), 
         gp = grid::gpar(col = "black", lwd = 1)
       ), 
-      xmin = -1.8, xmax = -1.8, 
-      ymin = min(res$`log2-fold change`), ymax = max(res$`log2-fold change`)
+      xmin = -1.2, xmax = -1.2, 
+      ymin = (max(abs(res$`log2-fold change`))/2),
+      ymax = max(abs(res$`log2-fold change`))
+    ) +
+    annotation_custom(
+      grob = grid::linesGrob(
+        arrow = arrow(type="open", ends="first", length = unit(3,"mm")), 
+        gp = grid::gpar(col = "black", lwd = 1)
+      ), 
+      xmin = -1.2, xmax = -1.2,
+      ymin = -max(abs(res$`log2-fold change`)), 
+      ymax = -(max(abs(res$`log2-fold change`))/2)
+    ) +
+    annotation_custom(
+      grob = grid::textGrob(
+        label = "Log2FC", 
+        vjust = 0, just = "top",
+        rot = 90, gp = grid::gpar(col = "black", fontsize = 10)
+      ), 
+      xmin = -1.2, xmax = -1.2, 
+      ymin = 0, 
+      ymax = 0
     ) +
     annotation_custom(
       grob = grid::textGrob(
         label = str_split_1(contrast, pattern = "_")[1], 
-        hjust = 0.5, vjust = -0.5, just = "top",
-        rot = 90, gp = grid::gpar(col = "black", fontsize = 11)
+        vjust = -0.5, just = "top",
+        rot = 90, gp = grid::gpar(col = "black", fontsize = 10)
       ), 
-      xmin = -2.1, xmax = -2.1, 
-      ymin = max(res$`log2-fold change`)-1,
-      ymax = max(res$`log2-fold change`)
+      xmin = -1.5, xmax = -1.5, 
+      ymin = (max(abs(res$`log2-fold change`))/2), 
+      ymax = max(abs(res$`log2-fold change`))
     ) +
     annotation_custom(
       grob = grid::textGrob(
         label = str_split_1(contrast, pattern = "_")[2],
-        hjust = 0.5, vjust = -0.5, just = "bottom",
-        rot = 90, gp = grid::gpar(col = "black", fontsize = 11)
+        vjust = -0.5, just = "bottom",
+        rot = 90, gp = grid::gpar(col = "black", fontsize = 10)
       ), 
-      xmin = -2.1, xmax = -2.1, 
-      ymin = min(res$`log2-fold change`), 
-      ymax = min(res$`log2-fold change`)+1
+      xmin = -1.5, xmax = -1.5, 
+      ymin = -max(abs(res$`log2-fold change`)), 
+      ymax = -(max(abs(res$`log2-fold change`))/2)
     ) 
   
   # save
-  ggsave(paste0(path_res, contrast, "/", contrast, "_da.png"), width = width, height = height)
+  ggsave(paste0(path_res, contrast, "/", contrast, "_da.png"), p, width = width, height = height)
   
 }
