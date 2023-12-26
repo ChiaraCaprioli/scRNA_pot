@@ -12,6 +12,8 @@ from sccoda.util import comp_ana as mod
 from sccoda.util import cell_composition_data as dat
 from sccoda.util import data_visualization as viz
 
+import arviz as az
+
 ## Run scCODA
 def RunScCODA(path_cell_counts, path_save, contrasts, group_var, alpha):
     
@@ -44,7 +46,7 @@ def RunScCODA(path_cell_counts, path_save, contrasts, group_var, alpha):
         model = mod.CompositionalAnalysis(
             data_contrast, formula=f"C({group_var}, Treatment('{ref}'))", 
             reference_cell_type="automatic",
-            automatic_reference_absence_threshold = 0.1
+            automatic_reference_absence_threshold = 0.05
             ) # desired acceptance rate 0.4-0.9 
             
         # Run MCMC
@@ -53,6 +55,15 @@ def RunScCODA(path_cell_counts, path_save, contrasts, group_var, alpha):
         # Set desired FDR
         res.set_fdr(est_fdr = alpha)
 
+        # Plot and save MCM diagnostics
+        az.plot_trace(
+            res,
+            divergences=False,
+            var_names=["alpha", "beta"],
+            coords={"cell_type": res.posterior.coords["cell_type_nb"]},
+        )
+        plt.savefig(os.path.join(PATH_SAVE, f"{i}_MCMC_diagn.png"))
+        
         # Save all results as pickle 
         ## saving
         PATH_PICKLE = os.path.join(PATH_SAVE, f"{i}.pkl")
