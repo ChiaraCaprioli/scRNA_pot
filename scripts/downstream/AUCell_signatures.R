@@ -9,6 +9,28 @@ LoadGeneSets <- function(path, ignore_cols = 1){
   return(y)
 }
 
+########## Check gene sets ##########
+CheckGeneSetExpr <- function(geneset, expr_matrix, fraction_expressed) {
+  
+  df <- data.frame()
+  for (g in names(geneset)) {
+    x = length(which(geneset[[g]] %in% rownames(exprMatrix)))
+    y = length(geneset[[g]])
+    df <- rbind(
+      data.frame(
+        signature = g,
+        n_gene_set = x,
+        fraction_expressed = x / y
+      ),
+      df
+    )
+  }
+  
+  df$keep <- ifelse(df$fraction_expressed >= fraction_expressed, TRUE, FALSE)
+  return(df)
+  
+}
+
 ########## Select AUC threshold ##########
 # See https://bioconductor.org/packages/devel/bioc/vignettes/AUCell/inst/doc/AUCell.html.
 
