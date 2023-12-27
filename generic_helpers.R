@@ -125,3 +125,14 @@ ShannonEntropyVar <- function(data, g_var, en_var) {
   return(df_entropy)
   
 }
+
+########## Create list of contrasts by group of interest ##########
+GetContrasts <- function(group, levels, sep) {
+  
+  group <- levels(group)
+  cb_list  <- as.list(combn(group, 2, FUN = function(x){paste0(x[1], sep, x[2])}))
+  return(cb_list)
+  
+}
+
+
