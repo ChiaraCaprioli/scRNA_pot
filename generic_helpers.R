@@ -125,3 +125,81 @@ ShannonEntropyVar <- function(data, g_var, en_var) {
   return(df_entropy)
   
 }
+
+########## Create list of contrasts by group of interest ##########
+GetContrasts <- function(group, levels, sep) {
+  
+  group <- levels(group)
+  cb_list  <- as.list(combn(group, 2, FUN = function(x){paste0(x[1], sep, x[2])}))
+  return(cb_list)
+  
+}
+
+########## Kolmogorov-Smirnov test by multiple contrasts ##########
+KsMultipleContrasts <- function(data, dist, var, contrasts) {
+  
+  # Prepare data
+  x <- data %>% select(dist, var)
+  x <- x[!is.nan(x[[dist]]),]
+  x[[dist]] <- x[[dist]]/max(x[[dist]]) #scale 0:1
+  
+  # Test significance of differences between distributions by Kolmogorov-Smirnov test
+  df_ks <- data.frame()
+  for (c in contrasts) {
+    
+    ks <- ks.test(
+      x[[dist]][x[[var]] == str_split_1(c, pattern = "_")[1]],
+      x[[dist]][x[[var]] == str_split_1(c, pattern = "_")[2]]
+    ) # two-sided, pairwise
+    
+    df_ks <- rbind(
+      cbind(
+        contrast = c,
+        test = "Two-sided Kolmogorov-Smirnov",
+        statistic = ks$statistic,
+        p_value = ifelse(ks$p.value < 2.2e-16, "< 2.2e-16", round(ks$p.value, digits = 3)) 
+      ),
+      df_ks
+    )
+  }
+  df_ks <- map_df(df_ks, rev)
+  
+  # Prepare labels
+  labels <- c()
+  for (i in 1:nrow(df_ks)) {
+    label = paste0(
+      df_ks$contrast[[i]], 
+      ": D = ", round(as.numeric(df_ks$statistic[[i]]), digits = 2), 
+      ", p ", df_ks$p_value[[i]]
+    )
+    labels[[i]] <- label
+  }
+  
+  # Plot
+  p <- ggplot(x, aes(x[[1]], x[[2]], fill = x[[2]])) +
+    ggridges::geom_density_ridges(color = "black", size = 0.2) +
+    xlab(dist) +
+    theme_bw() +
+    xlim(0,1) +
+    expand_limits(y = c(1, 6)) +
+    scale_fill_manual(values = colors[[var]]) +
+    annotate(
+      geom = "text",
+      x = 0.5, y = 5,
+      label = str_flatten(labels, collapse = "\n"),
+      size = 3
+    ) +
+    theme(
+      panel.grid = element_blank(),
+      legend.position = "none",
+      axis.text = element_text(color = 'black', size = 12),
+      axis.title = element_text(color = 'black', size = 12),
+      axis.title.y = element_blank(),
+      aspect.ratio = 1
+    ) 
+  
+  L <- list("df_ks" = df_ks, "p" = p)
+  return(L)
+  
+}
+
