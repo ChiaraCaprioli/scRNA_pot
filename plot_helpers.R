@@ -122,24 +122,63 @@ MultiVarDimRed <- function(seurat, var, reduction) {
   
   L_plots <- list()
   for (v in var) {
-
+    
+    if (v == "SRSF2") {
+      p <- DimPlot(
+        final_seurat,
+        group.by = v,
+        na.value = "lightgrey",
+        pt.size = 0.1,
+        cells.highlight = list(
+          "mutated" = colnames(final_seurat)[which(final_seurat$SRSF2 == "mutated")],
+          "wild-type" = colnames(final_seurat)[which(final_seurat$SRSF2 == "wild-type")]
+        ),
+        sizes.highlight = c(0.1,1.5)
+      ) +
+        scale_color_manual(
+          values = c("lightgrey", "steelblue", "darkred"),
+          labels = c("NA", "wild-type", "mutated")
+        ) +
+        theme_bw() +
+        coord_equal() +
+        theme(
+          panel.grid = element_blank(),
+          aspect.ratio = 1,
+          axis.title = element_text(size = 13),
+          axis.text = element_text(size = 10),
+          plot.title = element_blank(),
+          #plot.title = element_text(face = 'bold', hjust = 0.5, vjust = 2),
+          legend.margin = margin(rep(0,4), "cm"),
+          legend.justification = "left",
+          legend.text = element_text(size = 10),
+          plot.margin = unit(c(0.1, 0.1, 0.1 , 0.1), "cm")
+        )
+    } else {
+      
     p <- DimPlot(
       object = seurat, 
       reduction = reduction, 
       group.by = v, 
-      cols = cols, 
-      pt.size = 0.1, shuffle = T, seed = 123) +
+      cols = colors[[v]], 
+      pt.size = 0.1, 
+      shuffle = T, seed = 123,
+      na.value = "lightgrey"
+      ) +
       theme_bw() +
       coord_equal() +
-      theme(panel.grid = element_blank(),
-            aspect.ratio = 1,
-            axis.title = element_text(size = 13),
-            axis.text = element_text(size = 10),
-            plot.title = element_text(face = 'bold', hjust = 0.5, vjust = 2),
-            legend.margin = margin(rep(0,4), "cm"),
-            legend.justification = "left",
-            plot.margin = unit(c(0.1, 0.1, 0.1 , 0.1), "cm")
+      theme(
+        panel.grid = element_blank(),
+        aspect.ratio = 1,
+        axis.title = element_text(size = 13),
+        axis.text = element_text(size = 10),
+        plot.title = element_blank(),
+        #plot.title = element_text(face = 'bold', hjust = 0.5, vjust = 2),
+        legend.margin = margin(rep(0,4), "cm"),
+        legend.justification = "left",
+        legend.text = element_text(size = 10),
+        plot.margin = unit(c(0.1, 0.1, 0.1 , 0.1), "cm")
       )
+    }
     
     L_plots[[v]] <- p
   }
