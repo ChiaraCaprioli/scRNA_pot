@@ -97,20 +97,21 @@ TableGroupedCounts <- function(data, var1, var2) {
 
 ########## Shannon entropy according to grouping variables ##########
 ShannonEntropyVar <- function(data, g_var, en_var) {
-  
-  # prepare data
-  x <- data_entropy %>%
+  data_entropy <- data %>%
+    dplyr::select(c(
+      unlist(g_var), 
+      en_var
+    )) %>%
     group_by(
-      data_entropy[g_var[[1]]],
-      data_entropy[g_var[[2]]],
-      data_entropy[en_var]
+      data[g_var[[1]]],
+      data[g_var[[2]]],
+      data[en_var]
     ) %>%
     summarise(n = n()) 
   
-  # get entropy by grouping var
   df_entropy <- data.frame()
-  for ( i in unique(x[[g_var[[1]]]]) ) {
-    g_count <- x[which(x[g_var[[1]]] == i),]
+  for ( i in unique(data_entropy[[g_var[[1]]]]) ) {
+    g_count <- data_entropy[which(data_entropy[g_var[[1]]] == i),]
     df_entropy <- rbind(
       cbind(
         g1 = unique(g_count[g_var[[1]]]),
@@ -120,9 +121,41 @@ ShannonEntropyVar <- function(data, g_var, en_var) {
       df_entropy
     )
   }
+  df_entropy <- df_entropy %>% 
+    arrange(entropy)
+  df_entropy[[g_var[[1]]]] <- factor(df_entropy[[g_var[[1]]]], levels = df_entropy[[g_var[[1]]]])
   
-  df_entropy <- df_entropy %>% map_df(rev)
-  return(df_entropy)
+  
+  p1 <- ggplot(df_entropy, aes(x = df_entropy[[g_var[[1]]]], y = df_entropy[["entropy"]])) +
+    geom_point() +
+    geom_line(group = g_var[[1]]) +
+    labs(y = "Shannon entropy") +
+    theme_classic() +
+    coord_cartesian(clip = 'off') +
+    theme(
+      panel.grid = element_blank(),
+      axis.text.x = element_blank(),
+      axis.title.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      aspect.ratio = 0.35,
+      text = element_text(size = 13, color = 'black'),
+      axis.text = element_text(color = 'black'),
+      rect = element_rect(linewidth = 0.5),
+      axis.title.y = element_text(margin = margin(t = 0, r = 8, b = 0, l = 0))
+    )
+  
+  tab_group_count <- TableGroupedCounts(data = data, var1 = g_var[[1]], var2 = en_var)
+  tab_group_count[[g_var[[1]]]] <- factor(tab_group_count[[g_var[[1]]]], levels = df_entropy[[g_var[[1]]]])
+  
+  p2 <- BarGroupProp(tab_group_count, id.var = g_var[[1]], col = colors[[en_var]]) +
+    theme(
+      plot.margin = margin(t = 0.3, r = 0, b = 0, l = 0, unit = "cm"),
+      axis.title.y = element_text(margin = margin(t = 0, r = 0, b = 0, l = 0))
+    )
+  
+  plot_save <- p1 / p2
+  L_save <- list("df_entropy" = df_entropy, "plot_save" = plot_save)
+  return(L_save)
   
 }
 
@@ -140,7 +173,7 @@ KsMultipleContrasts <- function(data, dist, var, contrasts) {
   
   # Prepare data
   x <- data %>% select(dist, var)
-  x <- x[!is.nan(x[[dist]]),]
+  x <- x[!is.na(x[[dist]]),]
   x[[dist]] <- x[[dist]]/max(x[[dist]]) #scale 0:1
   
   # Test significance of differences between distributions by Kolmogorov-Smirnov test
