@@ -1,3 +1,21 @@
+########## Create gene sets from signatures ##########
+CreateGeneSets <- function(sig_sheet) {
+  
+  sig <- read_delim(sig_sheet, show_col_types = FALSE)
+  collection <- sig$signature
+  
+  # create GeneSet and save as .gmt
+  for (c in collection) {
+    
+    geneIds <- str_split_1(sig$genes[which(sig$signature == c)], pattern = ",")
+    gs <- GeneSet(geneIds = geneIds)
+    gs@setName <- c
+    toGmt(gs, paste0(PATH_SIGNATURES, "/", c, ".gmt"))
+    
+  }
+  
+}
+
 ########## Load gene sets ##########
 LoadGeneSets <- function(path, ignore_cols = 1){
   x <- scan(path, what="", sep="\n")
