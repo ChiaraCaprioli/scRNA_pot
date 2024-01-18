@@ -4,7 +4,7 @@
 # Requires data = table whose columns contain main grouping variable, total cell count and 
 # counts by other grouping variables (order is mandatory)
 
-BarGroupProp <- function(data, id.var, col = NULL) {
+BarGroupProp <- function(data, id.var, var = NULL, col = NULL) {
 
   data_prop <- data %>%
     dplyr::select(-c('total_cell_count')) %>%
@@ -17,16 +17,17 @@ BarGroupProp <- function(data, id.var, col = NULL) {
       stat = 'identity', width = 0.7,
       size = 0.3
       ) +
-    geom_text(
-      data = data,
-      aes(x = data[[1]], y = Inf, 
-          label = paste0('n = ', format(total_cell_count, big.mark = ',', trim = TRUE)), 
-          vjust = 0.5, hjust = -0.2, angle = 90),
-      color = 'black', size = 3
-    ) +
+    #geom_text(
+    #  data = data,
+    #  aes(x = data[[1]], y = Inf, 
+    #      label = paste0('n = ', format(total_cell_count, big.mark = ',', trim = TRUE)), 
+    #      vjust = 0.5, hjust = -0.2, angle = 90),
+    #  color = 'black', size = 3
+    #) +
     scale_y_continuous(name = '% cells', labels = scales::percent_format(), expand = c(0.01,0)) +
-    scale_fill_manual(values = col) +
+    scale_fill_manual(name = var, values = col) +
     coord_cartesian(clip = 'off') +
+    guides(fill = guide_legend(keywidth = unit(0.5, "cm"), keyheight = unit(0.5, "cm"))) +
     theme_bw() +
     theme(
       text = element_text(size = 13, color = 'black'),
@@ -35,9 +36,9 @@ BarGroupProp <- function(data, id.var, col = NULL) {
       axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
       panel.grid = element_blank(),
       axis.title.x = element_blank(),
-      legend.title = element_blank(),
       legend.text = element_text(size = 9),
-      plot.margin = margin(t = 60, r = 0, b = 0, l = 0, unit = 'pt')
+      plot.margin = margin(t = 1, r = 0, b = 0, l = 0, unit = "cm"),
+      rect = element_rect(linewidth = 0.5)
     )
 
 }
@@ -189,31 +190,33 @@ MultiVarDimRed <- function(seurat, var, reduction) {
 }
 
 ########## Jitter plot ##########
-JitterPlot <- function(data, x, y, cols, bar, stat_pwc, symnum.args) {
+JitterPlot <- function(data, x, y, cols, bar, stat_pwc, alternative = NULL, symnum.args) {
+  
+  data2 <- data %>% group_by(data[x]) %>% summarise(mean = mean(.data[[y]]))
   
   p <- ggplot(data, aes(data[[x]], data[[y]], fill = data[[x]])) +
     geom_jitter(
       size = 2.5, width = 0.2, height = 0, 
       shape = 21, stroke = 0.2, color = "black"
     ) +
-    #geom_point(
-    #  data = data = data %>% group_by(data[x]) %>% summarise(mean = mean(.data[[y]])), 
-    #  mapping = aes(x = data[x], y = bar), 
-    #  size = 10, color = 'black', shape = '_'
-    #  ) +
+    geom_point(
+      data = data2,
+      aes(x = cohort, y = mean),
+      size = 10, color = 'black', fill = "black", shape = '_'
+    ) +
     theme_bw() +
-    scale_y_continuous(expand = c(0.2,-0.2)) +
+    scale_y_continuous(expand = c(0.1,0.1)) +
     ylab(y) +
     scale_fill_manual(values = cols) +
     stat_pwc(
       method = stat_pwc,
+      method.args = list(alternative = alternative),
       bracket.shorten = 0.3,
       tip.length = 0,
       vjust = 0,
       label.size = 2.8,
-      label = "p.adj.signif",
       symnum.args = symnum.args,
-      hide.ns = T
+      hide.ns = F
     ) +
     theme(
       panel.grid = element_blank(),
@@ -221,7 +224,7 @@ JitterPlot <- function(data, x, y, cols, bar, stat_pwc, symnum.args) {
       legend.position = "none", 
       axis.title.x = element_blank(),
       axis.text = element_text(color = "black"),
-      axis.text.x = element_text(size = 10, angle = 30, hjust = 1),
+      axis.text.x = element_text(size = 10, angle = 0, hjust = 0.5, vjust = 1),
       axis.title.y = element_text(size = 10),
       plot.title = element_text(face = "bold", hjust = 0.5, vjust = 2, size = 12),
       plot.margin = unit(c(1,1,0,0), "cm")
