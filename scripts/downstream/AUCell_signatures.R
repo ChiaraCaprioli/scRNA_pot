@@ -1,3 +1,81 @@
+########## Create gene sets from signatures ##########
+
+##' Create gene sets from signatures and save as .gmt files.
+
+##' @title CreateGeneSets
+##' @param sig_sheet A sheet with signatures of interest. This needs the following fields: 
+##' "signature" (mandatory, i.e. the name of the signature to include); 
+##' "genes" (mandatory, i.e. gene symbol included in the signature when manually specified);
+##' "notes" (mandatory, i.e. the source for the signature, including MSigDB);
+##' "collection" (optional, i.e. a name for a collection that groups different signatures).
+
+CreateGeneSets <- function(sig_sheet, path_save) {
+  
+  # Get signature sheet
+  sig <- read_delim(sig_sheet, show_col_types = FALSE)
+  
+  # Get signatures from MSigDB if necessary
+  if (any(sig$notes == "MSigDB")) {
+    
+    message("Getting signatures from MSigDB...")
+    msig_db <- msigdbr(species = "Homo sapiens")
+    
+  }
+  
+  message("Creating gene set of signatures and/or collections...")
+  
+  if ("collection" %in% colnames(sig)) {
+    
+    collection <- unique(sig$collection)
+    
+    # create GeneSet and save as .gmt
+    for (c in collection) {
+      
+      sig_collection <- sig$signature[which(sig$collection == c)]
+      L_sig <- list()
+      
+      for (s in sig_collection) {
+        
+        if (any(msig_db$gs_name %in% s)) {
+          geneIds <- unique(msig_db$gene_symbol[which(msig_db$gs_name == s)])
+        } else {
+          geneIds <- str_split_1(sig$genes[which(sig$signature == s)], pattern = ",")
+        }
+        
+        gs <- GeneSet(geneIds = geneIds)
+        gs@setName <- s
+        L_sig[[s]] <- gs
+        
+      }
+      
+      # create collection
+      gs_collection <- GeneSetCollection(L_sig)
+      
+      # save as .gmt
+      toGmt(gs_collection, paste0(path_save, "/", c, ".gmt"))
+      
+    }
+  }
+  
+  if (!"collection" %in% colnames(sig)) {
+    
+    signature <- unique(sig$signature)
+    
+    # create GeneSet and save as .gmt
+    for (s in signature) {
+      
+      geneIds <- str_split_1(sig$genes[which(sig$signature == s)], pattern = ",")
+      gs <- GeneSet(geneIds = geneIds)
+      gs@setName <- s
+      toGmt(gs, paste0(path_save, "/", s, ".gmt"))
+      
+    }
+  }
+  
+  message("Done!")
+  
+}
+
 ########## Load gene sets ##########
 LoadGeneSets <- function(path, ignore_cols = 1){
   x <- scan(path, what="", sep="\n")
@@ -51,7 +129,7 @@ GetMaxAUC <- function(cells_rankings, range, gene_count) {
 }
 
 ########## Mean AUC by group(s) of interest ##########
-GeatMeanAUC <- function(data, group_var, sig) {
+GetMeanAUC <- function(data, group_var, sig) {
   
   # Prepare data
   data <- data %>% dplyr::select(group_var, sig)
@@ -80,5 +158,36 @@ GeatMeanAUC <- function(data, group_var, sig) {
   sig_score$signature <- str_split_i(sig_score$signature, pattern = "[.]", 1)
   
   return(sig_score)
+  
+}
+
+########## Z-score of AUC by group(s) of interest ##########
+ZGroupAUC <- function(data, group_var, sig) {
+  
+  # Prepare data
+  data <- data %>% dplyr::select(group_var, sig)
+  
+  L <- list()
+  for (i in setdiff(colnames(data), group_var)) {
+    
+    m_group <- aggregate(data[[i]] ~ data[[group_var]], data, mean)
+    m_all <- mean(data[[i]])
+    sd_all <- sd(data[[i]])
+    z <- (m_group[[2]] - m_all) / sd_all
+    
+    df_z <- data.frame(
+      group_var = m_group[[1]],
+      z_score = z
+    )
+    
+    L[[i]] <- df_z
+    
+  }
+  
+  sig_zscore <- do.call(rbind, L) %>% rownames_to_column(var = "signature")
+  colnames(sig_zscore)[2:ncol(sig_zscore)] <- c(group_var, "z_score")
+  sig_zscore$signature <- str_split_i(sig_zscore$signature, pattern = "[.]", 1)
+  
+  return(sig_zscore)
   
 }
